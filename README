@@ -1,0 +1,8 @@
+Graphical Isolated Reasoning Environemnt (GIRE)
+Stanley Small <stanley.small@jhu.edu>
+
+0 
+    - install gradle
+    - install docker-compose
+
+$ gradle build
