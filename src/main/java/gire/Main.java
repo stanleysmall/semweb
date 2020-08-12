@@ -26,12 +26,31 @@ public class Main {
             Statement stmt = iter.next();
             Property predicate = stmt.getPredicate();
             Resource subject = stmt.getSubject();
-            RDFNode obj = stmt.getObject();
+            RDFNode object = stmt.getObject();
 
-            System.out.println("Subject = " + subject.getLocalName());
-            session.run("CREATE (s) -[:" + predicate.getLocalName() + "]-> (t)");
-            System.out.println("Object = " + obj.toString().replaceAll(".+#", ""));
+            String subjectURI = subject.getURI();
+            String objectURI = null;
 
+            try {
+                objectURI = object.asResource().getURI();
+            } catch (Exception e) {}
+
+            if (subjectURI == null || subjectURI.length() == 0 || subjectURI.equals("null"))
+                    subjectURI = subject.toString();
+
+            if (objectURI == null || objectURI.length() == 0 || objectURI.equals("null"))
+                    objectURI = object.toString();
+
+            if (predicate.getLocalName().equals("type")) {
+                session.run("MERGE (subject {uri:\""+subjectURI+"\"}) SET subject :" + object.asResource().getLocalName());
+            }
+            else {
+                session.run("MERGE (subject {uri:\""+subjectURI+"\"})");
+                session.run("MERGE (object {uri:\""+objectURI+"\"})");
+                session.run("MATCH (subject {uri:\""+subjectURI+"\"}), (object {uri:\""+objectURI+"\"}) " + 
+                "MERGE((subject)-[:" + predicate.getLocalName() + " {uri: \"" + predicate.getURI() + "\"}]-> (object));");
+            }
+            
         }
 
         session.close();

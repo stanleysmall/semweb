@@ -13,6 +13,7 @@ repositories {
 dependencies {
     implementation group: 'org.apache.jena', name: 'jena-core', version: '3.16.0'
     implementation group: 'org.neo4j.driver', name: 'neo4j-java-driver', version: '4.1.1'
+    implementation group: 'org.slf4j', name: 'slf4j-simple', version: '1.6.2'
 }
 
 mainClassName =  'gire.Main'
