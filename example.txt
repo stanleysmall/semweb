@@ -1,0 +1,9 @@
+@prefix example: <example.org/#> .
+@prefix wine: <http://www.w3.org/TR/2003/PR-owl-guide-20031209/wine#> .
+
+@rule likes('example:Stan',X) :- hasBody(X, 'wine:Full') & hasFlavor(X,'wine:Strong') .  
+@rule likes('example:DrCost',Y) :- hasSugar(Y,'wine:Dry') . 
+
+@conjecture likes('example:Stan',X) .
+@conjecture likes('example:DrCost',X) .
+@conjecture likes('example:Stan',X) & likes('example:DrCost',X) .
