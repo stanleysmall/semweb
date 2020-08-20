@@ -2,9 +2,7 @@ package gire;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 
@@ -21,11 +19,10 @@ import org.neo4j.driver.Result;
 
 public class Main {
   public static Map<String, String> prefixes = new HashMap<String, String>();
-  public static Map<String, String[]> rules = new HashMap<String, String[]>();
-  public static List<String[]> conjectures = new ArrayList<String[]>();
 
   public static void main(String[] args) {
     Boolean overwrite = false;
+    String fileName = "example.txt";
 
     Driver driver = GraphDatabase.driver("bolt://localhost:7687", AuthTokens.basic("neo4j", "password"));
     Session session = driver.session();
@@ -67,76 +64,60 @@ public class Main {
               + "MERGE((subject)-[:" + predicate.getLocalName() + " {uri: \"" + predicate.getURI()
               + "\"}]-> (object));");
         }
-
       }
     }
 
     try {
-      File myObj = new File("example.txt");
-      Scanner myReader = new Scanner(myObj);
-      while (myReader.hasNextLine()) {
-        String l = myReader.nextLine();
-        int idStart = l.indexOf("@");
-        int idEnd = l.indexOf(" ");
-        String myCase = "";
-        if (idEnd > idStart)
-          myCase = l.substring(idStart + 1, idEnd);
-        else
-          myCase = "";
-        switch (myCase) {
+      File file = new File(fileName);
+      System.out.println("STARTED PROCESSING " + fileName + "\n");
+      Scanner scanner = new Scanner(file);
+      while (scanner.hasNextLine()) {
+        String line = scanner.nextLine();
+        switch (line.contains("@") ? line.substring(line.indexOf("@") + 1, line.indexOf(" ")) : "") {
           case "prefix":
-            prefixes.put(l.substring(idEnd + 1, l.indexOf(":")).trim(),
-                l.substring(l.indexOf("<") + 1, l.indexOf(">")).trim());
+            prefixes.put(line.substring(line.indexOf(" ") + 1, line.indexOf(":")).trim(),
+                line.substring(line.indexOf("<") + 1, line.indexOf(">")).trim());
             break;
           case "rule":
-            String headTerm = l.substring(idEnd + 1, l.indexOf(":-")).trim();
-            String[] tailTerms = l.substring(l.indexOf(":-") + 2, l.indexOf(".")).trim().split("&");
-            rules.put(headTerm, tailTerms);
+            System.out.println(line);
+            String headTerm = line.substring(line.indexOf(" ") + 1, line.indexOf(":-")).trim();
+            String[] tailTerms = line.substring(line.indexOf(":-") + 2, line.indexOf(".")).trim().split("&");
+            String ruleQuery = "";
+            for (String tailTerm : tailTerms)
+              ruleQuery += getQueryStringFromTerm(tailTerm, "MATCH");
+            ruleQuery += getQueryStringFromTerm(headTerm, "MERGE");
+            System.out.println(ruleQuery);
+            session.run(ruleQuery);
             break;
           case "conjecture":
-            conjectures.add(l.substring(idEnd + 1, l.indexOf(".")).trim().split("&"));
+            System.out.println(line);
+            String conectureQuery = "";
+            for (String term : line.substring(line.indexOf(" ") + 1, line.indexOf(".")).trim().split("&"))
+              conectureQuery += getQueryStringFromTerm(term, "MATCH");
+            conectureQuery += "RETURN *";
+            System.out.println(conectureQuery);
+            Result result = session.run(conectureQuery);
+            while (result.hasNext()) {
+              for (Pair<String, Value> nameValue : result.next().fields()) {
+                String uri = nameValue.value().get("uri").asString();
+                String localName = uri.substring(uri.indexOf('#') + 1, uri.length());
+                if (!nameValue.key().equals(localName))
+                  System.out.print(nameValue.key() + " = " + localName + " ");
+              }
+              System.out.println();
+
+            }
+            System.out.println();
             break;
 
           default:
             break;
         }
       }
-      myReader.close();
+      scanner.close();
     } catch (FileNotFoundException e) {
       System.out.println("An error occurred.");
       e.printStackTrace();
-    }
-
-    for (Map.Entry<String, String[]> entry : rules.entrySet()) {
-      System.out.println("@ RULE");
-      String query = "";
-      for (String tailTerm : entry.getValue())
-        query += getQueryStringFromTerm(tailTerm, "MATCH");
-      query += getQueryStringFromTerm(entry.getKey(), "MERGE");
-      System.out.println(query);
-      session.run(query);
-    }
-
-    Result result = null;
-    for (String[] conjecture : conjectures) {
-      System.out.println("@ CONJECTURE");
-      String query = "";
-      for (String term : conjecture)
-        query += getQueryStringFromTerm(term, "MATCH");
-      query += "RETURN *";
-      System.out.println(query);
-      result = session.run(query);
-      while (result.hasNext()) {
-        for (Pair<String, Value> nameValue : result.next().fields()) {
-          String uri = nameValue.value().get("uri").asString();
-          String localName = uri.substring(uri.indexOf('#')+1, uri.length());
-          if (!nameValue.key().equals(localName))
-            System.out.print(nameValue.key() + " = " + localName + " ");
-        }
-        System.out.println();
-  
-      }
-      System.out.println();
     }
 
     session.close();
@@ -162,10 +143,8 @@ public class Main {
       literal = literal.substring(1, literal.length() - 1);
       String localName = literal.substring(literal.indexOf(':') + 1, literal.length());
       literal = prefixes.get(literal.substring(0, literal.indexOf(':'))) + localName;
-      if (prefix.equals("MATCH"))
-        return "(" + localName + " {uri:\'" + literal + "\'})";
-      else
-        return "(" + localName + " {uri:\'" + literal + "\'})" + "\nMERGE " + "(" + localName + ")";
+      String id = "(" + localName + " {uri:\'" + literal + "\'})";
+      return prefix.equals("MATCH") ? id : id + "\nMERGE " + "(" + localName + ")";
     } else
       return "(" + literal + ")";
   }
