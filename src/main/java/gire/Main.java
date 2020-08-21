@@ -21,14 +21,14 @@ public class Main {
   public static Map<String, String> prefixes = new HashMap<String, String>();
 
   public static void main(String[] args) {
-    Boolean overwrite = false;
+    Boolean overwrite = true;
     String fileName = "example.txt";
 
     Driver driver = GraphDatabase.driver("bolt://localhost:7687", AuthTokens.basic("neo4j", "password"));
     Session session = driver.session();
 
     FileManager.get().addLocatorClassLoader(Main.class.getClassLoader());
-    Model model = FileManager.get().loadModel("wine.rdf");
+    Model model = FileManager.get().loadModel("wine.owl");
 
     StmtIterator iter = model.listStatements();
 
@@ -56,7 +56,7 @@ public class Main {
 
         if (predicate.getLocalName().equals("type")) {
           session
-              .run("MERGE (subject {uri:\"" + subjectURI + "\"}) SET subject :" + object.asResource().getLocalName());
+              .run("MERGE (subject {uri:\"" + subjectURI + "\"}) SET subject :" + object.asResource().getLocalName().replace("-", ""));
         } else {
           session.run("MERGE (subject {uri:\"" + subjectURI + "\"})");
           session.run("MERGE (object {uri:\"" + objectURI + "\"})");
@@ -141,7 +141,7 @@ public class Main {
   public static String literalToURI(String literal, String prefix) {
     if (literal.contains("\'")) {
       literal = literal.substring(1, literal.length() - 1);
-      String localName = literal.substring(literal.indexOf(':') + 1, literal.length());
+      String localName = literal.substring(literal.indexOf(':') + 1, literal.length()).replace("-", "");
       literal = prefixes.get(literal.substring(0, literal.indexOf(':'))) + localName;
       String id = "(" + localName + " {uri:\'" + literal + "\'})";
       return prefix.equals("MATCH") ? id : id + "\nMERGE " + "(" + localName + ")";
